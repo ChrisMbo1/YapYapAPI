@@ -9,7 +9,7 @@ namespace YapYapAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // Require authentication for all endpoints
+    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly YapYapDbContext _context;
@@ -19,11 +19,11 @@ namespace YapYapAPI.Controllers
             _context = context;
         }
 
-        // GET: api/user
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsers()
         {
             var users = await _context.Users
+                .Include(u => u.Status)
                 .Select(u => new UserDto
                 {
                     Id = u.Id,
@@ -37,11 +37,12 @@ namespace YapYapAPI.Controllers
             return Ok(users);
         }
 
-        // GET: api/user/5
         [HttpGet("{id}")]
         public async Task<ActionResult<UserDto>> GetUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await _context.Users
+                .Include(u => u.Status)
+                .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user == null)
             {
@@ -60,13 +61,14 @@ namespace YapYapAPI.Controllers
             return Ok(userDto);
         }
 
-        // GET: api/user/me
         [HttpGet("me")]
         public async Task<ActionResult<UserDto>> GetCurrentUser()
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
 
-            var user = await _context.Users.FindAsync(userId);
+            var user = await _context.Users
+                .Include(u => u.Status)
+                .FirstOrDefaultAsync(u => u.Id == userId);
 
             if (user == null)
             {
@@ -85,7 +87,6 @@ namespace YapYapAPI.Controllers
             return Ok(userDto);
         }
 
-        // PUT: api/user/5
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] RegisterDto updatedUser)
         {
@@ -94,10 +95,8 @@ namespace YapYapAPI.Controllers
                 return BadRequest(ModelState);
             }
 
-            // Get current user ID from token
             var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
 
-            // Users can only update their own profile
             if (currentUserId != id)
             {
                 return Forbid();
@@ -114,7 +113,6 @@ namespace YapYapAPI.Controllers
             user.BIO = updatedUser.BIO;
             user.status_id = updatedUser.status_id;
 
-            // Only update password if provided
             if (!string.IsNullOrEmpty(updatedUser.Password))
             {
                 user.Password = BCrypt.Net.BCrypt.HashPassword(updatedUser.Password);
@@ -135,14 +133,11 @@ namespace YapYapAPI.Controllers
             return Ok(userDto);
         }
 
-        // DELETE: api/user/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            // Get current user ID from token
             var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
 
-            // Users can only delete their own account
             if (currentUserId != id)
             {
                 return Forbid();
