@@ -1,5 +1,4 @@
-@YapYapAPI_HostAddress = http://localhost:5150
-
+@YapYapAPI_HostAddress = http:
 GET {{YapYapAPI_HostAddress}}/weatherforecast/
 Accept: application/json
 

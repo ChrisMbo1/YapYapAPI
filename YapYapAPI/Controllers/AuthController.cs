@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using YapYapAPI.Data;
 using YapYapAPI.Models;
 using YapYapAPI.Services;
-using BCrypt.Net;
 
 namespace YapYapAPI.Controllers
 {
@@ -13,37 +13,40 @@ namespace YapYapAPI.Controllers
     {
         private readonly YapYapDbContext _context;
         private readonly ITokenService _tokenService;
-        private readonly IConfiguration _configuration;
 
-        public AuthController(YapYapDbContext context, ITokenService tokenService, IConfiguration configuration)
+        public AuthController(YapYapDbContext context, ITokenService tokenService)
         {
             _context = context;
             _tokenService = tokenService;
-            _configuration = configuration;
         }
 
-        // POST: api/auth/register
         [HttpPost("register")]
-        public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterDto registerDto)
+        [AllowAnonymous]
+        public async Task<ActionResult<LoginResponseDto>> Register([FromBody] RegisterDto registerDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            // Check if user already exists
-            if (await _context.Users.AnyAsync(u => u.Name == registerDto.Name))
+            var existingUser = await _context.Users
+    .FirstOrDefaultAsync(u => u.Name == registerDto.Name);
+
+            if (existingUser != null)
             {
                 return BadRequest(new { message = "Username already exists" });
             }
 
-            // Hash the password
-            var hashedPassword = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
+            var statusExists = await _context.Statuses.AnyAsync(s => s.Id == registerDto.status_id);
+            if (!statusExists)
+            {
+                return BadRequest(new { message = "Invalid status_id" });
+            }
 
             var user = new User
             {
                 Name = registerDto.Name,
-                Password = hashedPassword,
+                Password = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
                 BIO = registerDto.BIO,
                 status_id = registerDto.status_id,
                 created_at = DateTime.UtcNow
@@ -52,14 +55,11 @@ namespace YapYapAPI.Controllers
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // Generate token
             var token = _tokenService.GenerateToken(user);
-            var jwtSettings = _configuration.GetSection("JwtSettings").Get<JwtSettings>();
 
-            var response = new AuthResponseDto
+            var response = new LoginResponseDto
             {
                 Token = token,
-                Expiration = DateTime.UtcNow.AddMinutes(jwtSettings.ExpirationInMinutes),
                 User = new UserDto
                 {
                     Id = user.Id,
@@ -73,30 +73,34 @@ namespace YapYapAPI.Controllers
             return Ok(response);
         }
 
-        // POST: api/auth/login
         [HttpPost("login")]
-        public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto loginDto)
+        [AllowAnonymous]
+        public async Task<ActionResult<LoginResponseDto>> Login([FromBody] LoginDto loginDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Name == loginDto.Name);
+            var user = await _context.Users
+           .Include(u => u.Status)
+           .FirstOrDefaultAsync(u => u.Name == loginDto.Name);
 
-            if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.Password))
+            if (user == null)
             {
                 return Unauthorized(new { message = "Invalid username or password" });
             }
 
-            // Generate token
-            var token = _tokenService.GenerateToken(user);
-            var jwtSettings = _configuration.GetSection("JwtSettings").Get<JwtSettings>();
+            if (!BCrypt.Net.BCrypt.Verify(loginDto.Password, user.Password))
+            {
+                return Unauthorized(new { message = "Invalid username or password" });
+            }
 
-            var response = new AuthResponseDto
+            var token = _tokenService.GenerateToken(user);
+
+            var response = new LoginResponseDto
             {
                 Token = token,
-                Expiration = DateTime.UtcNow.AddMinutes(jwtSettings.ExpirationInMinutes),
                 User = new UserDto
                 {
                     Id = user.Id,
