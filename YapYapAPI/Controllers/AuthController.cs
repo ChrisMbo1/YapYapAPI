@@ -30,14 +30,19 @@ namespace YapYapAPI.Controllers
             }
 
             var existingUser = await _context.Users
-    .FirstOrDefaultAsync(u => u.Name == registerDto.Name);
+                .FirstOrDefaultAsync(u => u.Name == registerDto.Name);
 
             if (existingUser != null)
             {
                 return BadRequest(new { message = "Username already exists" });
             }
 
-            var statusExists = await _context.Statuses.AnyAsync(s => s.Id == registerDto.status_id);
+       
+            var statusId = 1;
+            if (registerDto.status_id != 0)
+                statusId = registerDto.status_id;
+
+                var statusExists = await _context.Statuses.AnyAsync(s => s.Id == statusId);
             if (!statusExists)
             {
                 return BadRequest(new { message = "Invalid status_id" });
@@ -48,7 +53,7 @@ namespace YapYapAPI.Controllers
                 Name = registerDto.Name,
                 Password = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
                 BIO = registerDto.BIO,
-                status_id = registerDto.status_id,
+                status_id = statusId,
                 created_at = DateTime.UtcNow
             };
 
@@ -83,8 +88,8 @@ namespace YapYapAPI.Controllers
             }
 
             var user = await _context.Users
-           .Include(u => u.Status)
-           .FirstOrDefaultAsync(u => u.Name == loginDto.Name);
+                .Include(u => u.Status)
+                .FirstOrDefaultAsync(u => u.Name == loginDto.Name);
 
             if (user == null)
             {
