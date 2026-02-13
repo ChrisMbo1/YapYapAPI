@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace YapYapAPI.Migrations
 {
     /// <inheritdoc />
-    public partial class intial : Migration
+    public partial class inati : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

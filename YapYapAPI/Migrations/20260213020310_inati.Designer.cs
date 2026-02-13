@@ -12,8 +12,8 @@ using YapYapAPI.Data;
 namespace YapYapAPI.Migrations
 {
     [DbContext(typeof(YapYapDbContext))]
-    [Migration("20260212230713_intial")]
-    partial class intial
+    [Migration("20260213020310_inati")]
+    partial class inati
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
