@@ -103,22 +103,21 @@ namespace YapYapAPI.Controllers
             }
 
             var user = await _context.Users.FindAsync(id);
-
             if (user == null)
             {
                 return NotFound(new { message = "User not found" });
             }
 
-            user.Name = updatedUser.Name;
-            user.BIO = updatedUser.BIO;
-            user.status_id = updatedUser.status_id;
-
-            if (!string.IsNullOrEmpty(updatedUser.Password))
+            if (!string.IsNullOrEmpty(updatedUser.Name))
             {
-                user.Password = BCrypt.Net.BCrypt.HashPassword(updatedUser.Password);
+                user.Name = updatedUser.Name;
             }
 
-            _context.Users.Update(user);
+            if (!string.IsNullOrEmpty(updatedUser.BIO))
+            {
+                user.BIO = updatedUser.BIO;
+            }
+
             await _context.SaveChangesAsync();
 
             var userDto = new UserDto
@@ -132,6 +131,7 @@ namespace YapYapAPI.Controllers
 
             return Ok(userDto);
         }
+
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
@@ -155,5 +155,7 @@ namespace YapYapAPI.Controllers
 
             return NoContent();
         }
+
+ 
     }
 }
